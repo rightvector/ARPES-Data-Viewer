@@ -1,1 +1,1 @@
-BCH
+Modules for viewer panel
