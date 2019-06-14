@@ -16,7 +16,7 @@ QSizePolicy, QStyleFactory, QFrame, QPushButton, QComboBox, QCheckBox, QMenu)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QIcon, QCursor
 from Data import Spectrum
-from Viewer.Selector import Selector3D
+from Viewer.Selector import Selector
 from Viewer.colormap import CustomComboBox
 import glob, os, copy
 import numpy as np
@@ -98,7 +98,50 @@ class fourDmap(QWidget):
         self.MapYline1 = self.ax_Map.axvline(self.ax_Map.get_xbound()[0], visible=False, animated=True, color='k', linestyle='--', linewidth=0.75)
         self.MapXline2 = self.ax_Map.axhline(self.ax_Map.get_ybound()[0], visible=False, animated=True, color='k', linestyle='--', linewidth=0.75)  
         self.MapYline2 = self.ax_Map.axvline(self.ax_Map.get_xbound()[0], visible=False, animated=True, color='k', linestyle='--', linewidth=0.75)  
- 
+        self.XDCCursor = self.ax_XDC.axvline(self.ax_XDC.get_xbound()[0], visible=False, animated=True, color='k', linestyle='--', linewidth=0.75)
+        self.YDCCursor = self.ax_YDC.axhline(self.ax_YDC.get_ybound()[0], visible=False, animated=True, color='k', linestyle='--', linewidth=0.75)
+        self.ZDCCursor = self.ax_ZDC.axvline(self.ax_ZDC.get_xbound()[0], visible=False, animated=True, color='k', linestyle='--', linewidth=0.75)
+        self.TDCCursor = self.ax_TDC.axhline(self.ax_TDC.get_ybound()[0], visible=False, animated=True, color='k', linestyle='--', linewidth=0.75)
+
+        #selector
+        self.selector_Spec = Selector(self.ax_Spec, self.canvas)
+        self.selector_Map = Selector(self.ax_Map, self.canvas)
+        self.cid_keypress = self.canvas.mpl_connect('key_press_event', self.OnKeyPress)
+        self.cid_press = self.canvas.mpl_connect('button_press_event', self.OnPress)
+        self.cid_release = self.canvas.mpl_connect('button_release_event', self.OnRelease)
+
+        #contextMenu
+        self.contextMenu = QMenu(self)
+        self.CropAction = self.contextMenu.addAction("Crop")
+        self.CropAction.setIcon(QIcon("./image/crop.ico"))
+        #self.CropAction.triggered.connect(self.crop)
+        self.RestoreAction = self.contextMenu.addAction("Restore")
+        self.RestoreAction.setIcon(QIcon("./image/restore.ico"))
+        #self.RestoreAction.triggered.connect(self.viewer.Win.DataProcessor.tab_single.RestoreData)
+        self.SelectMenu = self.contextMenu.addMenu("Select")
+        self.SelectMenu.setIcon(QIcon("./image/select.ico"))
+        self.SelectX = self.SelectMenu.addAction("X Range")
+        #self.SelectX.triggered.connect(self.setSelectionRange)
+        self.SelectY = self.SelectMenu.addAction("Y Range")
+        #self.SelectY.triggered.connect(self.setSelectionRange)
+        self.SelectXY = self.SelectMenu.addAction("XY Area")
+        #self.SelectXY.triggered.connect(self.setSelectionRange)
+        self.SelectZ = self.SelectMenu.addAction("Z Range")
+        #self.SelectZ.triggered.connect(self.setSelectionRange)
+        self.SelectT = self.SelectMenu.addAction("T Range")
+        #self.SelectT.triggered.connect(self.setSelectionRange)
+        self.SelectZT = self.SelectMenu.addAction("ZT Area")
+        #self.SelectZT.triggered.connect(self.setSelectionRange)
+        self.outputMenu = self.contextMenu.addMenu("Output")
+        self.outputMenu.setIcon(QIcon("./image/output.ico"))
+        self.Spec_action = self.outputMenu.addAction("Spectrum")
+        #self.Spec_action.triggered.connect(self.outputData)
+        self.Map_action = self.outputMenu.addAction("Map")
+        #self.Map_action.triggered.connect(self.outputData)
+        self.XDC_action = self.outputMenu.addAction("XDC")
+        self.YDC_action = self.outputMenu.addAction("YDC")
+        self.ZDC_action = self.outputMenu.addAction("ZDC")
+        self.TDC_action = self.outputMenu.addAction("TDC")
 
         #init Tool
         self.toolPanel = QGroupBox("Coordinate System")
@@ -188,7 +231,7 @@ class fourDmap(QWidget):
         self.XSlice.setFixedWidth(50)
         self.XSlice.setKeyboardTracking(False)
         self.XSlice.setStyle(QStyleFactory.create('Fusion'))
-        #self.XSlice.valueChanged.connect(self.setSlice)
+        self.XSlice.valueChanged.connect(self.setSlice)
         self.XSliceLabel = QLabel("Slice:")
         self.YSlice = QSpinBox()
         self.YSlice.setRange(1, 10000)
@@ -196,7 +239,7 @@ class fourDmap(QWidget):
         self.YSlice.setFixedWidth(50)
         self.YSlice.setKeyboardTracking(False)
         self.YSlice.setStyle(QStyleFactory.create('Fusion'))
-        #self.YSlice.valueChanged.connect(self.setSlice)
+        self.YSlice.valueChanged.connect(self.setSlice)
         self.YSliceLabel = QLabel("Slice:")
         self.ZSlice = QSpinBox()
         self.ZSlice.setRange(1, 10000)
@@ -204,7 +247,7 @@ class fourDmap(QWidget):
         self.ZSlice.setFixedWidth(50)
         self.ZSlice.setKeyboardTracking(False)
         self.ZSlice.setStyle(QStyleFactory.create('Fusion'))
-        #self.ZSlice.valueChanged.connect(self.setSlice)
+        self.ZSlice.valueChanged.connect(self.setSlice)
         self.ZSliceLabel = QLabel("Slice:")
         self.TSlice = QSpinBox()
         self.TSlice.setRange(1, 10000)
@@ -212,7 +255,7 @@ class fourDmap(QWidget):
         self.TSlice.setFixedWidth(50)
         self.TSlice.setKeyboardTracking(False)
         self.TSlice.setStyle(QStyleFactory.create('Fusion'))
-        #self.TSlice.valueChanged.connect(self.setSlice)
+        self.TSlice.valueChanged.connect(self.setSlice)
         self.TSliceLabel = QLabel("Slice:")
         hbox_tool = QHBoxLayout()
         hbox_tool.addStretch(2)
@@ -480,10 +523,10 @@ class fourDmap(QWidget):
         half_wid_ynum = (self.YSlice.value()-1)/2
         self.SpecYline1.set_xdata(xvalue-self.data.xstep*half_wid_xnum)
         self.SpecYline2.set_xdata(xvalue+self.data.xstep*half_wid_xnum)
-        # self.XDCCursor.set_xdata(xvalue)
+        self.XDCCursor.set_xdata(xvalue)
         self.SpecXline1.set_ydata(yvalue-self.data.ystep*half_wid_ynum)
         self.SpecXline2.set_ydata(yvalue+self.data.ystep*half_wid_ynum)
-        # self.YDCCursor.set_ydata(yvalue)
+        self.YDCCursor.set_ydata(yvalue)
         self.Map = self.get_Map(xvalue, yvalue)
         self.XDC = self.get_XDC(yvalue)
         self.YDC = self.get_YDC(xvalue)
@@ -505,10 +548,10 @@ class fourDmap(QWidget):
         half_wid_tnum = (self.TSlice.value()-1)/2
         self.MapYline1.set_xdata(zvalue-self.data.zstep*half_wid_znum)
         self.MapYline2.set_xdata(zvalue+self.data.zstep*half_wid_znum)
-        # self.XDCCursor.set_xdata(xvalue)
+        self.ZDCCursor.set_xdata(zvalue)
         self.MapXline1.set_ydata(tvalue-self.data.tstep*half_wid_tnum)
         self.MapXline2.set_ydata(tvalue+self.data.tstep*half_wid_tnum)
-        # self.YDCCursor.set_ydata(yvalue)
+        self.TDCCursor.set_ydata(tvalue)
         self.Spec = self.get_Spec(zvalue, tvalue)
         self.ZDC = self.get_ZDC(tvalue)
         self.TDC = self.get_TDC(zvalue)
@@ -521,6 +564,92 @@ class fourDmap(QWidget):
         self.plotTDC()
         self.plotArtist()
         self.setIntensity()
+
+    def setSlice(self, value):
+        if self.sender() == self.XSlice:
+            if value % 2 == 0:
+                self.XSlice.setValue(value-1)
+            else:
+                if value == 1:
+                    self.SpecYline2.set_visible(False)
+                else:
+                    self.SpecYline2.set_visible(True)
+                half_wid_num = (value-1)/2
+                self.SpecYline1.set_xdata(self.X.value()-self.data.xstep*half_wid_num)
+                self.SpecYline2.set_xdata(self.X.value()+self.data.xstep*half_wid_num)
+                self.Map = self.get_Map(self.X.value(), self.Y.value())
+                self.YDC = self.get_YDC(self.X.value())
+                self.ZDC = self.get_ZDC(self.T.value())
+                self.TDC = self.get_TDC(self.Z.value())
+                self.plotMap(self.getcurrentcmap('Map'), True)
+                self.plotYDC()
+                self.plotZDC()
+                self.plotTDC()
+                self.plotArtist()
+                self.setIntensity()
+        elif self.sender() == self.YSlice:
+            if value % 2 == 0:
+                self.YSlice.setValue(value-1)
+            else:
+                if value == 1:
+                    self.SpecXline2.set_visible(False)
+                else:
+                    self.SpecXline2.set_visible(True)
+                half_wid_num = (value-1)/2
+                self.SpecXline1.set_ydata(self.Y.value()-self.data.ystep*half_wid_num)
+                self.SpecXline2.set_ydata(self.Y.value()+self.data.ystep*half_wid_num)
+                self.Map = self.get_Map(self.X.value(), self.Y.value())
+                self.XDC = self.get_XDC(self.Y.value())
+                self.ZDC = self.get_ZDC(self.T.value())
+                self.TDC = self.get_TDC(self.Z.value())
+                self.plotMap(self.getcurrentcmap('Map'), True)
+                self.plotXDC()
+                self.plotZDC()
+                self.plotTDC()
+                self.plotArtist()
+                self.setIntensity()
+        elif self.sender() == self.ZSlice:
+            if value % 2 == 0:
+                self.ZSlice.setValue(value-1)
+            else:
+                if value == 1:
+                    self.MapYline2.set_visible(False)
+                else:
+                    self.MapYline2.set_visible(True)
+                half_wid_num = (value-1)/2
+                self.MapYline1.set_xdata(self.Z.value()-self.data.zstep*half_wid_num)
+                self.MapYline2.set_xdata(self.Z.value()+self.data.zstep*half_wid_num)
+                self.Spec = self.get_Spec(self.Z.value(), self.T.value())
+                self.XDC = self.get_XDC(self.Y.value())
+                self.YDC = self.get_YDC(self.X.value())
+                self.TDC = self.get_TDC(self.Z.value())
+                self.plotSpec(self.getcurrentcmap('Spec'), True)
+                self.plotXDC()
+                self.plotYDC()
+                self.plotTDC()
+                self.plotArtist()
+                self.setIntensity()
+        elif self.sender() == self.TSlice:
+            if value % 2 == 0:
+                self.TSlice.setValue(value-1)
+            else:
+                if value == 1:
+                    self.MapXline2.set_visible(False)
+                else:
+                    self.MapXline2.set_visible(True)
+                half_wid_num = (value-1)/2
+                self.MapXline1.set_ydata(self.T.value()-self.data.tstep*half_wid_num)
+                self.MapXline2.set_ydata(self.T.value()+self.data.tstep*half_wid_num)
+                self.Spec = self.get_Spec(self.Z.value(), self.T.value())
+                self.XDC = self.get_XDC(self.Y.value())
+                self.YDC = self.get_YDC(self.X.value())
+                self.ZDC = self.get_ZDC(self.T.value())
+                self.plotSpec(self.getcurrentcmap('Spec'), True)
+                self.plotXDC()
+                self.plotYDC()
+                self.plotZDC()
+                self.plotArtist()
+                self.setIntensity()
 
     def scale2pnt(self, value, scale):
         return (np.abs(scale - value)).argmin()
@@ -570,82 +699,102 @@ class fourDmap(QWidget):
         tidx = self.scale2pnt(tvalue, self.data.tscale)
         if self.ZSlice.value() == 1 and self.TSlice.value() == 1:
             return self.data.data[:, :, zidx, tidx]
-        # else:
-        #     half_wid_num = int((self.ZSlice.value()-1)/2)
-        #     if zidx < half_wid_num:
-        #         array = self.data.data[:, :, 0:zidx+half_wid_num+1]
-        #     else:
-        #         array = self.data.data[:, :, zidx-half_wid_num:zidx+half_wid_num+1]
-        #     return np.sum(array, axis=2)
+        else:
+            half_wid_znum = int((self.ZSlice.value()-1)/2)
+            half_wid_tnum = int((self.TSlice.value()-1)/2)
+            zidx_max = zidx+half_wid_znum+1
+            tidx_max = tidx+half_wid_tnum+1
+            if zidx < half_wid_znum:
+                zidx_min = 0
+            else:
+                zidx_min = zidx-half_wid_znum
+            if tidx < half_wid_tnum:
+                tidx_min = 0
+            else:
+                tidx_min = tidx-half_wid_tnum
+            array = self.data.data[:, :, zidx_min:zidx_max, tidx_min:tidx_max]
+            array = np.sum(array, axis=2)
+            array = np.sum(array, axis=2)
+            return array
 
     def get_Map(self, xvalue, yvalue):
         xidx = self.scale2pnt(xvalue, self.data.xscale)
         yidx = self.scale2pnt(yvalue, self.data.yscale)
         if self.XSlice.value() == 1 and self.YSlice.value() == 1:
             return self.data.data[xidx, yidx, :, :]
-        # else:
-        #     half_wid_num = int((self.ZSlice.value()-1)/2)
-        #     if zidx < half_wid_num:
-        #         array = self.data.data[:, :, 0:zidx+half_wid_num+1]
-        #     else:
-        #         array = self.data.data[:, :, zidx-half_wid_num:zidx+half_wid_num+1]
-        #     return np.sum(array, axis=2)
+        else:
+            half_wid_xnum = int((self.XSlice.value()-1)/2)
+            xidx_max = xidx+half_wid_xnum+1
+            if xidx < half_wid_xnum:
+                xidx_min = 0
+            else:
+                xidx_min = xidx-half_wid_xnum
+            half_wid_ynum = int((self.YSlice.value()-1)/2)
+            yidx_max = yidx+half_wid_ynum+1
+            if yidx < half_wid_ynum:
+                yidx_min = 0
+            else:
+                yidx_min = yidx-half_wid_ynum
+            array = self.data.data[xidx_min:xidx_max, yidx_min:yidx_max, :, :]
+            array = np.sum(array, axis=0)
+            array = np.sum(array, axis=0)
+            return array
 
     def get_XDC(self, yvalue):
         yidx = self.scale2pnt(yvalue, self.data.yscale)
         if self.YSlice.value() == 1:
             return self.Spec[:, yidx]
-        # else:
-        #     half_wid_ynum = int((self.YSlice.value()-1)/2)
-        #     if yidx < half_wid_ynum:
-        #         ystart = 0
-        #     else:
-        #         ystart = yidx - half_wid_ynum
-        #     yend = yidx + half_wid_ynum + 1
-        #     array = self.Zcut[:, ystart:yend]
-        #     return np.sum(array, axis=1)
+        else:
+            half_wid_ynum = int((self.YSlice.value()-1)/2)
+            if yidx < half_wid_ynum:
+                ystart = 0
+            else:
+                ystart = yidx - half_wid_ynum
+            yend = yidx + half_wid_ynum + 1
+            array = self.Spec[:, ystart:yend]
+            return np.sum(array, axis=1)
 
     def get_YDC(self, xvalue):
         xidx = self.scale2pnt(xvalue, self.data.xscale)
         if self.XSlice.value() == 1:
             return self.Spec[xidx, :]
-        # else:
-        #     half_wid_ynum = int((self.YSlice.value()-1)/2)
-        #     if yidx < half_wid_ynum:
-        #         ystart = 0
-        #     else:
-        #         ystart = yidx - half_wid_ynum
-        #     yend = yidx + half_wid_ynum + 1
-        #     array = self.Zcut[:, ystart:yend]
-        #     return np.sum(array, axis=1)
+        else:
+            half_wid_xnum = int((self.XSlice.value()-1)/2)
+            if xidx < half_wid_xnum:
+                xstart = 0
+            else:
+                xstart = xidx - half_wid_xnum
+            xend = xidx + half_wid_xnum + 1
+            array = self.Spec[xstart:xend, :]
+            return np.sum(array, axis=0)
 
     def get_ZDC(self, tvalue):
         tidx = self.scale2pnt(tvalue, self.data.tscale)
         if self.TSlice.value() == 1:
             return self.Map[:, tidx]
-        # else:
-        #     half_wid_ynum = int((self.YSlice.value()-1)/2)
-        #     if yidx < half_wid_ynum:
-        #         ystart = 0
-        #     else:
-        #         ystart = yidx - half_wid_ynum
-        #     yend = yidx + half_wid_ynum + 1
-        #     array = self.Zcut[:, ystart:yend]
-        #     return np.sum(array, axis=1)
+        else:
+            half_wid_tnum = int((self.TSlice.value()-1)/2)
+            if tidx < half_wid_tnum:
+                tstart = 0
+            else:
+                tstart = tidx - half_wid_tnum
+            tend = tidx + half_wid_tnum + 1
+            array = self.Map[:, tstart:tend]
+            return np.sum(array, axis=1)
 
     def get_TDC(self, zvalue):
         zidx = self.scale2pnt(zvalue, self.data.zscale)
         if self.ZSlice.value() == 1:
             return self.Map[zidx, :]
-        # else:
-        #     half_wid_ynum = int((self.YSlice.value()-1)/2)
-        #     if yidx < half_wid_ynum:
-        #         ystart = 0
-        #     else:
-        #         ystart = yidx - half_wid_ynum
-        #     yend = yidx + half_wid_ynum + 1
-        #     array = self.Zcut[:, ystart:yend]
-        #     return np.sum(array, axis=1)
+        else:
+            half_wid_znum = int((self.ZSlice.value()-1)/2)
+            if zidx < half_wid_znum:
+                zstart = 0
+            else:
+                zstart = zidx - half_wid_znum
+            zend = zidx + half_wid_znum + 1
+            array = self.Map[zstart:zend, :]
+            return np.sum(array, axis=0)
 
     def getcurrentcmap(self, which):
         linearIndex = np.linspace(0, 1, 256)
@@ -729,13 +878,13 @@ class fourDmap(QWidget):
                 self.MapYline2.set_visible(True)
             if self.TSlice.value() > 1:
                 self.MapXline2.set_visible(True)
-            # self.XDCCursor.set_visible(True)
-            # self.YDCCursor.set_visible(True)
-            # self.ZDC1Cursor.set_visible(True)
-            # self.ZDC2Cursor.set_visible(True)
-            # self.plotXDC()
-            # self.plotYDC()
-            # self.plotZDC()
+            self.XDCCursor.set_visible(True)
+            self.YDCCursor.set_visible(True)
+            self.ZDCCursor.set_visible(True)
+            self.TDCCursor.set_visible(True)
+            self.plotXDC()
+            self.plotYDC()
+            self.plotZDC()
             self.plotArtist()
             self.cid_mouse = self.canvas.mpl_connect('motion_notify_event', self.navigate)
             self.cid_key = self.canvas.mpl_connect('key_press_event', self.navigate)
@@ -748,13 +897,13 @@ class fourDmap(QWidget):
             self.SpecYline2.set_visible(False)
             self.MapXline2.set_visible(False)
             self.MapYline2.set_visible(False)
-            # self.XDCCursor.set_visible(False)
-            # self.YDCCursor.set_visible(False)
-            # self.ZDC1Cursor.set_visible(False)
-            # self.ZDC2Cursor.set_visible(False)
-            # self.plotXDC()
-            # self.plotYDC()
-            # self.plotZDC()
+            self.XDCCursor.set_visible(False)
+            self.YDCCursor.set_visible(False)
+            self.ZDCCursor.set_visible(False)
+            self.TDCCursor.set_visible(False)
+            self.plotXDC()
+            self.plotYDC()
+            self.plotZDC()
             self.plotArtist()
             self.canvas.mpl_disconnect(self.cid_mouse)
             self.canvas.mpl_disconnect(self.cid_key)
@@ -777,39 +926,166 @@ class fourDmap(QWidget):
             self.Z.valueChanged.connect(self.setValueFromSpinBox)
             self.T.valueChanged.connect(self.setValueFromSpinBox)
 
+    def OnPress(self, event):
+        if (event.inaxes == self.ax_Spec or event.inaxes == self.ax_Map) and event.button == 1:
+            if event.inaxes == self.ax_Spec:
+                selector0 = self.selector_Spec
+            elif event.inaxes == self.ax_Map:
+                selector0 = self.selector_Map
+            if not selector0.visible: #draw selector from nothing
+                selector0.moving_state = "draw"
+                selector0.origin = (event.xdata, event.ydata)
+                self.cid_drawRS = self.canvas.mpl_connect('motion_notify_event', self.OnDrawRS)
+            else:
+                dist = selector0.nearestCorner(event.x, event.y)
+                if dist < 10:
+                    selector0.moving_state = "moveHandle"
+                    selector0.origin = (event.xdata, event.ydata)
+                    self.cid_moveHandle = self.canvas.mpl_connect('motion_notify_event', self.OnMoveHandle)
+                else:
+                    if selector0.isinRegion(event.xdata, event.ydata): #move the selector
+                        selector0.moving_state = "move"
+                        selector0.origin = (event.xdata, event.ydata)
+                        self.cid_moveRS = self.canvas.mpl_connect('motion_notify_event', self.OnMoveRS)
+                    else:          #clear the selector
+                        selector0.set_visible(False)
+                        self.plotArtist()
+
+    def OnDrawRS(self, event):
+        if (event.inaxes == self.ax_Spec or event.inaxes == self.ax_Map) and event.button == 1:
+            if event.inaxes == self.ax_Spec:
+                selector0 = self.selector_Spec
+            elif event.inaxes == self.ax_Map:
+                selector0 = self.selector_Map
+            if event.xdata != selector0.origin[0] and event.ydata != selector0.origin[1]:
+                selector0.set_visible(True)
+                selector0.resize(selector0.origin[0], selector0.origin[1], event.xdata, event.ydata)
+                self.plotArtist()
+
+    def OnMoveRS(self, event):
+        if (event.inaxes == self.ax_Spec or event.inaxes == self.ax_Map) and event.button == 1:
+            if event.inaxes == self.ax_Spec:
+                selector0 = self.selector_Spec
+            elif event.inaxes == self.ax_Map:
+                selector0 = self.selector_Map
+            xmin, ymin, xmax, ymax = selector0.region
+            selector0.resize(xmin+event.xdata-selector0.origin[0], ymin+event.ydata-selector0.origin[1], xmax+event.xdata-selector0.origin[0], ymax+event.ydata-selector0.origin[1])
+            self.plotArtist()
+            selector0.origin = (event.xdata, event.ydata)
+
+    def OnMoveHandle(self, event):
+        if (event.inaxes == self.ax_Spec or event.inaxes == self.ax_Map) and event.button == 1:
+            if event.inaxes == self.ax_Spec:
+                selector0 = self.selector_Spec
+            elif event.inaxes == self.ax_Map:
+                selector0 = self.selector_Map
+            xmin, ymin, xmax, ymax = selector0.region
+            if selector0.active_handle == 0:
+                selector0.resize(xmin+event.xdata-selector0.origin[0], ymin+event.ydata-selector0.origin[1], xmax, ymax)
+            elif selector0.active_handle == 1:
+                selector0.resize(xmin, ymin+event.ydata-selector0.origin[1], xmax, ymax)
+            elif selector0.active_handle == 2:
+                selector0.resize(xmin, ymin+event.ydata-selector0.origin[1], xmax+event.xdata-selector0.origin[0], ymax)
+            elif selector0.active_handle == 3:
+                selector0.resize(xmin, ymin, xmax+event.xdata-selector0.origin[0], ymax)
+            elif selector0.active_handle == 4:
+                selector0.resize(xmin, ymin, xmax+event.xdata-selector0.origin[0], ymax+event.ydata-selector0.origin[1])
+            elif selector0.active_handle == 5:
+                selector0.resize(xmin, ymin, xmax, ymax+event.ydata-selector0.origin[1])
+            elif selector0.active_handle == 6:
+                selector0.resize(xmin+event.xdata-selector0.origin[0], ymin, xmax, ymax+event.ydata-selector0.origin[1])
+            elif selector0.active_handle == 7:
+                selector0.resize(xmin+event.xdata-selector0.origin[0], ymin, xmax, ymax)
+            self.plotArtist()
+            selector0.origin = (event.xdata, event.ydata)
+
+    def OnRelease(self, event):
+        if event.inaxes == self.ax_Spec or event.inaxes == self.ax_Map:
+            if event.inaxes == self.ax_Spec:
+                selector0 = self.selector_Spec
+            elif event.inaxes == self.ax_Map:
+                selector0 = self.selector_Map
+            if event.button == 1:
+                if selector0.moving_state == "draw":
+                    self.canvas.mpl_disconnect(self.cid_drawRS)
+                elif selector0.moving_state == "move":
+                    self.canvas.mpl_disconnect(self.cid_moveRS)
+                elif selector0.moving_state == "moveHandle":
+                    self.canvas.mpl_disconnect(self.cid_moveHandle)
+            if event.button == 3:
+                if selector0.visible and selector0.isinRegion(event.xdata, event.ydata):
+                    self.CropAction.setEnabled(True)
+                    self.SelectMenu.setEnabled(True)
+                    if event.inaxes == self.ax_Spec:
+                        #self.CropAction.triggered.connect(lambda: self.crop('Spec'))
+                        self.SelectX.setEnabled(True)
+                        self.SelectY.setEnabled(True)
+                        self.SelectXY.setEnabled(True)
+                        self.SelectZ.setEnabled(False)
+                        self.SelectT.setEnabled(False)
+                        self.SelectZT.setEnabled(False)
+                    elif event.inaxes == self.ax_Map:
+                        #self.CropAction.triggered.connect(lambda: self.crop('Map'))
+                        self.SelectX.setEnabled(False)
+                        self.SelectY.setEnabled(False)
+                        self.SelectXY.setEnabled(False)
+                        self.SelectZ.setEnabled(True)
+                        self.SelectT.setEnabled(True)
+                        self.SelectZT.setEnabled(True)
+                else:
+                    self.CropAction.setEnabled(False)
+                    self.SelectMenu.setEnabled(False)
+                self.showContextMenu()
+        else:
+            if event.button == 3:
+                self.CropAction.setEnabled(False)
+                self.SelectMenu.setEnabled(False)
+                self.showContextMenu()
+
+    def OnKeyPress(self, event):
+        if event.key == 'ctrl+a':
+            if self.toolPanel.isChecked():
+                self.toolPanel.setChecked(False)
+            else:
+                self.toolPanel.setChecked(True)
+
+    def showContextMenu(self):       
+        self.contextMenu.move(QCursor.pos())
+        self.contextMenu.show()
+
     def plotSpec(self, cmap, useblit):
         for img in self.ax_Spec.get_images():
             img.remove()
         self.Specimg = self.ax_Spec.imshow(self.Spec.T, cmap=cmap, origin="lower", extent=(self.data.xmin-0.5*self.data.xstep, self.data.xmax+0.5*self.data.xstep, self.data.ymin-0.5*self.data.ystep, self.data.ymax+0.5*self.data.ystep), aspect=self.spec_aspect, interpolation='none')
-        #visible_flag = self.selector.visible
-        #self.selector.set_visible(False)
+        visible_flag = self.selector_Spec.visible
+        self.selector_Spec.set_visible(False)
         if useblit:
             self.ax_Spec.redraw_in_frame()
             self.canvas.blit(self.Specbbox)
         else:
             pass
         self.background_Spec = self.canvas.copy_from_bbox(self.Specbbox) #this line makes sure that the background will be updated when user change color map
-        #self.selector.set_visible(visible_flag)
+        self.selector_Spec.set_visible(visible_flag)
 
     def plotMap(self, cmap, useblit):
         for img in self.ax_Map.get_images():
             img.remove()
         self.Mapimg = self.ax_Map.imshow(self.Map.T, cmap=cmap, origin="lower", extent=(self.data.zmin-0.5*self.data.zstep, self.data.zmax+0.5*self.data.zstep, self.data.tmin-0.5*self.data.tstep, self.data.tmax+0.5*self.data.tstep), aspect=self.map_aspect, interpolation='none')
-        #visible_flag = self.selector.visible
-        #self.selector.set_visible(False)
+        visible_flag = self.selector_Map.visible
+        self.selector_Map.set_visible(False)
         if useblit:
             self.ax_Map.redraw_in_frame()
             self.canvas.blit(self.Mapbbox)
         else:
             pass
         self.background_Map = self.canvas.copy_from_bbox(self.Mapbbox) #this line makes sure that the background will be updated when user change color map
-        #self.selector.set_visible(visible_flag)
+        self.selector_Map.set_visible(visible_flag)
 
     def plotXDC(self):
         self.resetXDC()
         self.canvas.restore_region(self.background_XDC)
         self.ax_XDC.draw_artist(self.XDCLine)
-        #self.ax_XDC.draw_artist(self.XDCCursor)
+        self.ax_XDC.draw_artist(self.XDCCursor)
         self.canvas.blit(self.XDCbbox)
 
     def resetXDC(self):
@@ -831,7 +1107,7 @@ class fourDmap(QWidget):
         self.resetYDC()
         self.canvas.restore_region(self.background_YDC)
         self.ax_YDC.draw_artist(self.YDCLine)
-        #self.ax_XDC.draw_artist(self.XDCCursor)
+        self.ax_YDC.draw_artist(self.YDCCursor)
         self.canvas.blit(self.YDCbbox)
 
     def resetYDC(self):
@@ -853,7 +1129,7 @@ class fourDmap(QWidget):
         self.resetZDC()
         self.canvas.restore_region(self.background_ZDC)
         self.ax_ZDC.draw_artist(self.ZDCLine)
-        #self.ax_XDC.draw_artist(self.XDCCursor)
+        self.ax_ZDC.draw_artist(self.ZDCCursor)
         self.canvas.blit(self.ZDCbbox)
 
     def resetZDC(self):
@@ -875,7 +1151,7 @@ class fourDmap(QWidget):
         self.resetTDC()
         self.canvas.restore_region(self.background_TDC)
         self.ax_TDC.draw_artist(self.TDCLine)
-        #self.ax_XDC.draw_artist(self.XDCCursor)
+        self.ax_TDC.draw_artist(self.TDCCursor)
         self.canvas.blit(self.TDCbbox)
 
     def resetTDC(self):
@@ -897,14 +1173,14 @@ class fourDmap(QWidget):
         self.canvas.restore_region(self.background_Spec)
         for line in self.ax_Spec.get_lines():
             self.ax_Spec.draw_artist(line)
-        # for artist in self.selector.artistz:
-        #     self.ax_Zcut.draw_artist(artist)
+        for artist in self.selector_Spec.artist:
+            self.ax_Spec.draw_artist(artist)
         self.canvas.blit(self.Specbbox)
         self.canvas.restore_region(self.background_Map)
         for line in self.ax_Map.get_lines():
             self.ax_Map.draw_artist(line)
-        # for artist in self.selector.artistx:
-        #     self.ax_Xcut.draw_artist(artist)
+        for artist in self.selector_Map.artist:
+            self.ax_Map.draw_artist(artist)
         self.canvas.blit(self.Mapbbox)
 
     def updateAxesPosition(self, useDraw):
@@ -918,12 +1194,15 @@ class fourDmap(QWidget):
         self.ax_YDC.set_position([x_YDC, y_Spec, w_YDC, h_Spec])
         self.ax_ZDC.set_position([x_Map, y_ZDC, w_Map, h_ZDC])
         self.ax_TDC.set_position([x_TDC, y_Map, w_TDC, h_Map])
-        #visible_flag = self.selector.visible
-        #self.selector.set_visible(False)
+        visible_Spec_flag = self.selector_Spec.visible
+        visible_Map_flag = self.selector_Map.visible
+        self.selector_Spec.set_visible(False)
+        self.selector_Map.set_visible(False)
         if useDraw:
             self.canvas.draw()
         self.GetWhiteBackground()
-        #self.selector.set_visible(visible_flag)
+        self.selector_Spec.set_visible(visible_Spec_flag)
+        self.selector_Map.set_visible(visible_Map_flag)
         self.plotXDC()
         self.plotYDC()
         self.plotZDC()
